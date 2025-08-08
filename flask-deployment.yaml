@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+    spec:
+      containers:
+      - name: flask-app
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.us-west-2.amazonaws.com/flask-app:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: S3_BUCKET
+          value: geoai-adityaraj-2025
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /up
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /up
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
