@@ -1,0 +1,40 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-west-2
+
+    - name: Login to Amazon ECR
+      run: |
+        aws ecr get-login-password --region us-west-2 \
+          | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-west-2.amazonaws.com
+
+    - name: Build and Push Docker image
+      run: |
+        docker build -t flask-app:latest .
+        docker tag flask-app:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-west-2.amazonaws.com/flask-app:latest
+        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-west-2.amazonaws.com/flask-app:latest
+
+    - name: Deploy to EKS
+      run: |
+        aws eks update-kubeconfig --region us-west-2 --name devops-challenge-cluster
+        kubectl apply -f gp2-storageclass.yaml
+        kubectl apply -f postgres-secret.yaml
+        kubectl apply -f postgres-statefulset.yaml
+        kubectl apply -f flask-deployment.yaml
+        kubectl apply -f flask-service.yaml
+        kubectl apply -f ingress.yaml
+        kubectl apply -f hpa.yaml
